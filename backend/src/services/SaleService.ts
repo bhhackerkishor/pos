@@ -33,7 +33,7 @@ export class SaleService {
             for (const item of items) {
                 const product = await Product.findById(item._id).session(session);
                 if (!product) throw new Error(`Product ${item.name} not found`);
-                if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
+                //if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
 
                 // Determine correct price (Wholesale vs Retail)
                 let appliedPrice = product.price;

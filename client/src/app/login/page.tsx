@@ -48,7 +48,7 @@ export default function LoginPage() {
                         <ShoppingCart className="w-8 h-8 text-primary" />
                     </div>
                     <h1 className="text-4xl font-bold tracking-tight text-white mb-2">
-                        Antigravity POS
+                        OHM SAKTHI STORE
                     </h1>
                     <p className="text-muted-foreground">Premium Retail Management System</p>
                 </div>
