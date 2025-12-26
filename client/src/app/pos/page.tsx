@@ -51,6 +51,7 @@ export default function POSPage() {
     const [recentPurchases, setRecentPurchases] = useState<any[]>([]);
     const [showHeldBills, setShowHeldBills] = useState(false);
     const [showCustomProductModal, setShowCustomProductModal] = useState(false);
+    const [shopSettings, setShopSettings] = useState<any>(null);
 
     // Payment States
     const [receivedAmount, setReceivedAmount] = useState<string>('');
@@ -58,7 +59,9 @@ export default function POSPage() {
     const [paymentMethod, setPaymentMethod] = useState<'cash' | 'upi' | 'credit'>('cash');
     const [customProduct, setCustomProduct] = useState({ name: '', price: '', taxRate: '18' });
 
+    const [selectedProductIndex, setSelectedProductIndex] = useState(-1);
     const searchRef = useRef<HTMLInputElement>(null);
+    const checkoutAmountRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const delaySearch = setTimeout(() => {
@@ -77,8 +80,37 @@ export default function POSPage() {
         window.addEventListener('offline', handleStatusChange);
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Shortcuts
             if (e.altKey && e.key === 's') { e.preventDefault(); searchRef.current?.focus(); }
             if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); setShowCheckout(true); }
+            if (e.key === 'F2') { e.preventDefault(); setShowCustomProductModal(true); }
+            if (e.key === 'F4') { e.preventDefault(); setShowCustomerForm(prev => !prev); }
+            if (e.key === 'Escape') {
+                setShowCheckout(false);
+                setShowCustomerForm(false);
+                setShowHeldBills(false);
+                setShowCustomProductModal(false);
+            }
+            if (e.altKey && e.key === 'c') { e.preventDefault(); clearCart(); }
+
+            // Navigation in search results
+            if (document.activeElement === searchRef.current) {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setSelectedProductIndex(prev => Math.min(prev + 1, products.length - 1));
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setSelectedProductIndex(prev => Math.max(prev - 1, 0));
+                }
+                if (e.key === 'Enter' && selectedProductIndex >= 0) {
+                    e.preventDefault();
+                    addItem(products[selectedProductIndex]);
+                    setSelectedProductIndex(-1);
+                    setSearchTerm('');
+                    toast.success(`Added ${products[selectedProductIndex].name}`);
+                }
+            }
         };
         window.addEventListener('keydown', handleKeyDown);
 
@@ -88,7 +120,7 @@ export default function POSPage() {
             window.removeEventListener('offline', handleStatusChange);
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, []);
+    }, [products, selectedProductIndex]);
 
     const fetchInitialData = async () => {
         try {
@@ -98,8 +130,11 @@ export default function POSPage() {
             setAllCustomers(custRes.data.data);
             const recentRes = await api.get('/sales?limit=10');
             const recentItems = recentRes.data.data.flatMap((sale: any) => sale.items).slice(0, 10);
-            const uniqueRecents = Array.from(new Map(recentItems.map((item: any) => [item._id, item])).values());
+            const uniqueRecents = Array.from(new Map(recentItems.map((item: any) => [item.product, { ...item, _id: item.product }])).values());
             setRecentPurchases(uniqueRecents);
+
+            const settingsRes = await api.get('/settings');
+            setShopSettings(settingsRes.data.data);
         } catch (error) {
             console.error('Failed to load initial terminal data');
         }
@@ -196,12 +231,19 @@ export default function POSPage() {
     const handlePrint = (sale: any) => {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
+
+        const showName = shopSettings?.receiptShowName ?? true;
+        const showQty = shopSettings?.receiptShowQty ?? true;
+        const showPrice = shopSettings?.receiptShowPrice ?? true;
+        const showTax = shopSettings?.receiptShowTax ?? true;
+        const printerWidth = shopSettings?.thermalPrinterWidth || '80mm';
+
         printWindow.document.write(`
       <html>
         <head>
           <style>
             @page { margin: 0; }
-            body { font-family: 'Courier New', monospace; width: 80mm; padding: 10px; color: #000; font-weight: bold; }
+            body { font-family: 'Courier New', monospace; width: ${printerWidth}; padding: 10px; color: #000; font-weight: bold; }
             .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 15px; }
             .item { display: flex; justify-content: space-between; font-size: 14px; margin: 8px 0; }
             .total { border-top: 2px solid #000; padding-top: 10px; margin-top: 15px; }
@@ -211,26 +253,29 @@ export default function POSPage() {
         </head>
         <body onload="window.print(); window.close();">
           <div class="header">
-            <h2 style="margin:0">OHM SAKTHI STORE</h2>
-            <p style="margin:5px 0; font-size: 12px">GSTIN: 27AAACA1234A1Z1</p>
+            <h2 style="margin:0">${shopSettings?.shopName || 'OHM SAKTHI STORE'}</h2>
+            ${shopSettings?.gstin ? `<p style="margin:5px 0; font-size: 12px">GSTIN: ${shopSettings.gstin}</p>` : ''}
             <p style="margin:5px 0; font-size: 11px">INV: ${sale.invoiceNumber}</p>
             <p style="margin:5px 0; font-size: 11px">${new Date(sale.createdAt).toLocaleString()}</p>
-            <p style="margin:5px 0; font-size: 12px">CUSTOMER: ${sale.customerDetails?.name || 'Walk-in'}</p>
+            <p style="margin:5px 0; font-size: 12px">CUSTOMER: ${sale.customerDetails?.name || sale.customer?.name || 'Walk-in'}</p>
           </div>
           <div class="items">
             ${sale.items.map((i: any) => `
-              <div class="item"><span>${i.name} x${i.quantity}</span><span>${formatCurrency(i.price * i.quantity)}</span></div>
+              <div class="item">
+                <span>${showName ? i.name : ''} ${showQty ? `x${i.quantity}` : ''}</span>
+                <span>${showPrice ? formatCurrency(i.price * i.quantity) : ''}</span>
+              </div>
             `).join('')}
           </div>
           <div class="total">
             <div class="item"><span>SUBTOTAL</span> <span>${formatCurrency(sale.subTotal)}</span></div>
-            <div class="item"><span>Taxes (GST)</span> <span>${formatCurrency(sale.taxTotal)}</span></div>
+            ${showTax ? `<div class="item"><span>Taxes (GST)</span> <span>${formatCurrency(sale.taxTotal)}</span></div>` : ''}
             <div class="item" style="font-size: 18px; margin-top: 10px;"><strong>GRAND TOTAL</strong> <span>${formatCurrency(sale.grandTotal)}</span></div>
             ${sale.amountPaid > 0 ? `<div class="item balance-row"><span>PAID</span> <span>${formatCurrency(sale.amountPaid)}</span></div>` : ''}
             ${sale.changeAmount > 0 ? `<div class="item balance-row"><span>CHANGE</span> <span>${formatCurrency(sale.changeAmount)}</span></div>` : ''}
-            ${sale.paymentStatus === 'pending' ? `<div class="item balance-row" style="color:red"><span>DUE (BALANCE)</span> <span>${formatCurrency(sale.grandTotal - sale.amountPaid)}</span></div>` : ''}
+            ${sale.paymentStatus === 'pending' || (sale.grandTotal - sale.amountPaid > 0) ? `<div class="item balance-row" style="color:red"><span>DUE (BALANCE)</span> <span>${formatCurrency(sale.grandTotal - sale.amountPaid)}</span></div>` : ''}
           </div>
-          <div class="footer"><p>Visit Again! Store Closed on Sundays.</p></div>
+          <div class="footer"><p>Visit Again! ${shopSettings?.address ? `<br/>${shopSettings.address}` : ''}</p></div>
         </body>
       </html>
     `);
@@ -325,15 +370,29 @@ export default function POSPage() {
                         <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
                             {loading ? <div className="h-full flex items-center justify-center opacity-20 uppercase font-black tracking-widest">Searching...</div> : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
-                                    {products.map((p) => (
-                                        <motion.div key={p._id} layout onClick={() => addItem(p)} className="glass-card !p-3 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden flex flex-col items-center text-center">
+                                    {products.map((p, idx) => (
+                                        <motion.div
+                                            key={p._id}
+                                            layout
+                                            onClick={() => addItem(p)}
+                                            className={cn(
+                                                "glass-card !p-3 hover:border-primary/50 transition-all cursor-pointer group relative overflow-hidden flex flex-col items-center text-center",
+                                                selectedProductIndex === idx && "ring-2 ring-primary border-primary bg-primary/5"
+                                            )}
+                                        >
                                             <div className="w-full aspect-square bg-secondary rounded-2xl flex items-center justify-center text-primary group-hover:scale-105 transition-all overflow-hidden mb-3 relative shadow-inner">
                                                 {p.image ? <img src={p.image} alt={p.name} className="w-full h-full object-cover" /> : <Package size={32} strokeWidth={1.5} opacity={0.5} />}
                                                 {p.wholesalePrice && <div className="absolute top-2 right-2 px-2 py-0.5 bg-emerald-500/90 backdrop-blur-md rounded-md text-[8px] font-black text-white uppercase tracking-widest italic shadow-lg">WS Active</div>}
+                                                {selectedProductIndex === idx && <div className="absolute inset-0 bg-primary/10 flex items-center justify-center font-black text-white text-[10px] uppercase">Hit Enter</div>}
                                             </div>
                                             <div className="px-2 w-full">
                                                 <h3 className="font-bold text-foreground text-[11px] line-clamp-1 tracking-tight mb-1">{p.name}</h3>
-                                                <div className="flex items-center justify-between"><span className="text-primary font-black text-sm">{formatCurrency(p.price)}</span><span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full", p.stockQuantity <= p.lowStockThreshold ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-500")}>{p.stockQuantity}</span></div>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-primary font-black text-sm">{formatCurrency(p.price)}</span>
+                                                    {p.stockQuantity !== undefined && (
+                                                        <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-full", p.stockQuantity <= p.lowStockThreshold ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-500")}>{p.stockQuantity}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </motion.div>
                                     ))}
@@ -345,7 +404,7 @@ export default function POSPage() {
                     <div className="w-[450px] flex flex-col glass rounded-[2.5rem] border border-border overflow-hidden shadow-2xl bg-card">
                         <div className="p-8 border-b border-border bg-secondary/30 flex items-center justify-between">
                             <div className="flex items-center gap-4"><div className="w-12 h-12 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20"><ShoppingCart size={24} /></div><h2 className="text-xl font-black tracking-tight uppercase">Terminal Cart</h2></div>
-                            <button onClick={clearCart} className="w-10 h-10 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive transition-all hover:text-white border border-destructive/10 flex items-center justify-center"><Trash2 size={18} /></button>
+                            <button onClick={clearCart} className="w-10 h-10 bg-destructive/5 text-destructive rounded-xl hover:bg-destructive transition-all hover:text-white border border-destructive/10 flex items-center justify-center "><Trash2 size={18} /></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar">
                             <AnimatePresence>
@@ -385,7 +444,7 @@ export default function POSPage() {
                                 <div className="flex-1 space-y-8">
                                     <div><p className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-4">Settle Transaction</p><h2 className="text-6xl font-black tracking-tighter text-foreground mb-2">{formatCurrency(total)}</h2><div className="flex items-center gap-3 p-3 bg-secondary rounded-2xl border border-border"><User size={16} className="text-primary" /><span className="text-xs font-black uppercase tracking-widest">{customerName || 'Walking Customer (Guest)'}</span></div></div>
                                     <div className="space-y-6">
-                                        <div><label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-2"><Coins size={14} /> Currency Received</label><input type="number" className="input-field w-full h-20 text-4xl font-black tracking-tighter bg-secondary text-primary" placeholder="0.00" value={receivedAmount} onChange={(e) => setReceivedAmount(e.target.value)} /></div>
+                                        <div><label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-3 block flex items-center gap-2"><Coins size={14} /> Currency Received</label><input ref={checkoutAmountRef} autoFocus type="number" className="input-field w-full h-20 text-4xl font-black tracking-tighter bg-secondary text-primary" placeholder="0.00" value={receivedAmount} onChange={(e) => setReceivedAmount(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCheckout()} /></div>
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="bg-emerald-500/5 p-6 rounded-3xl border border-emerald-500/10"><p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2">Change Return</p><p className="text-3xl font-black text-emerald-600 tracking-tighter">{formatCurrency(changeAmount)}</p></div>
                                             <div className={cn("p-6 rounded-3xl border transition-all", balanceShortfall > 0 ? "bg-amber-500/5 border-amber-500/10" : "bg-secondary border-border opacity-30")}><p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-2">Shortfall / Due</p><p className="text-3xl font-black text-amber-600 tracking-tighter">{formatCurrency(balanceShortfall)}</p></div>

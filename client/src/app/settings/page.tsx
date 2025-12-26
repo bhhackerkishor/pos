@@ -33,7 +33,11 @@ export default function SettingsPage() {
         thermalPrinterWidth: '80mm',
         invoicePrefix: 'INV',
         lowStockAlert: true,
-        paginationLimit: 10
+        paginationLimit: 10,
+        receiptShowName: true,
+        receiptShowQty: true,
+        receiptShowPrice: true,
+        receiptShowTax: true,
     });
 
     useEffect(() => {
@@ -173,6 +177,29 @@ export default function SettingsPage() {
                                     >
                                         80mm
                                     </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6 bg-secondary/30 p-6 rounded-3xl border border-border">
+                                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest block mb-4">Invoice Layout configuration</p>
+                                <div className="space-y-3">
+                                    {[
+                                        { key: 'receiptShowName', label: 'Show Item Name' },
+                                        { key: 'receiptShowQty', label: 'Show Quantity' },
+                                        { key: 'receiptShowPrice', label: 'Show Unit Price' },
+                                        { key: 'receiptShowTax', label: 'Show Tax Details' },
+                                    ].map((item) => (
+                                        <div key={item.key} className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSettings({ ...settings, [item.key as keyof typeof settings]: !settings[item.key as keyof typeof settings] })}
+                                                className={`w-10 h-6 rounded-full relative transition-all ${settings[item.key as keyof typeof settings] ? 'bg-primary' : 'bg-border'}`}
+                                            >
+                                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${settings[item.key as keyof typeof settings] ? 'right-1' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>

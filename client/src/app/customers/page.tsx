@@ -38,17 +38,19 @@ export default function CustomerPage() {
         phone: '',
         email: '',
         address: '',
-        balance: '0'
+        outstandingBalance: '0'
     });
 
     useEffect(() => {
         fetchCustomers();
+        console.log(formData)
     }, [page, limit]);
 
     const fetchCustomers = async () => {
         try {
             setLoading(true);
             const res = await api.get(`/customers?page=${page}&limit=${limit}`);
+            console.log(res.data)
             setCustomers(res.data.data);
             setTotalPages(res.data.pages);
         } catch (err) {
@@ -66,7 +68,7 @@ export default function CustomerPage() {
                 phone: customer.phone || '',
                 email: customer.email || '',
                 address: customer.address || '',
-                balance: customer.balance?.toString() || '0'
+                outstandingBalance: customer.outstandingBalance?.toString() || '0'
             });
         } else {
             setEditingCustomer(null);
@@ -75,7 +77,7 @@ export default function CustomerPage() {
                 phone: '',
                 email: '',
                 address: '',
-                balance: '0'
+                outstandingBalance: '0'
             });
         }
         setShowModal(true);
@@ -84,7 +86,7 @@ export default function CustomerPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const data = { ...formData, balance: Number(formData.balance) };
+            const data = { ...formData, outstandingBalance: Number(formData.outstandingBalance) };
             if (editingCustomer) {
                 await api.put(`/customers/${editingCustomer._id}`, data);
                 toast.success('Customer profile updated');
@@ -190,8 +192,8 @@ export default function CustomerPage() {
                                                 <p className="text-sm text-muted-foreground flex items-center gap-2"><MapPin size={14} /> {c.address || 'N/A'}</p>
                                             </td>
                                             <td className="px-10 py-8">
-                                                <span className={`font-black tracking-tighter ${c.balance > 0 ? 'text-destructive' : 'text-emerald-500'}`}>
-                                                    {c.balance?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                                <span className={`font-black tracking-tighter ${c.outstandingBalance > 0 ? 'text-destructive' : 'text-emerald-500'}`}>
+                                                    {c.outstandingBalance?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                                                 </span>
                                             </td>
                                             <td className="px-10 py-8 text-right">
@@ -246,7 +248,7 @@ export default function CustomerPage() {
                                     <div className="space-y-6">
                                         <div className="group">
                                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Outstanding Balance (₹)</label>
-                                            <input type="number" className="input-field w-full" value={formData.balance} onChange={e => setFormData({ ...formData, balance: e.target.value })} />
+                                            <input type="number" className="input-field w-full" value={formData.outstandingBalance} onChange={e => setFormData({ ...formData, outstandingBalance: e.target.value })} />
                                         </div>
                                         <div className="group">
                                             <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block">Mailing Address</label>

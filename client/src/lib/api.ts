@@ -9,12 +9,12 @@ api.interceptors.request.use(
     (config) => {
         if (typeof window !== 'undefined') {
             const authStorage = localStorage.getItem('auth-storage-v2');
-            console.log(authStorage);
+            //console.log(authStorage);
             if (authStorage) {
                 try {
                     const parsed = JSON.parse(authStorage);
                     const token = parsed?.state?.token;
-                    console.log(token);
+                    //console.log(token);
                     if (token) config.headers.Authorization = `Bearer ${token}`;
                 } catch (err) {
                     console.error('Failed to parse auth-storage-v2', err);

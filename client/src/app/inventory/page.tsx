@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Search, Edit2, Trash2, Download, Package, TrendingUp, AlertTriangle, BarChart3, X, Barcode, Tag, Layers, DollarSign, Box } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Download, Package, TrendingUp, AlertTriangle, BarChart3, X, Barcode, Tag, Layers, DollarSign, Box, Upload, ImageIcon } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -151,6 +151,30 @@ export default function InventoryPage() {
             fetchProducts();
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to save product');
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const loadingToast = toast.loading('Synchronizing image with server...');
+        try {
+            const formDataToUpload = new FormData();
+            formDataToUpload.append('file', file);
+
+            const res = await api.post('/upload/image', formDataToUpload, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (res.data.secure_url) {
+                setFormData(prev => ({ ...prev, image: res.data.secure_url }));
+                toast.success('Image synchronized successfully', { id: loadingToast });
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Server sync failed', { id: loadingToast });
         }
     };
 
@@ -353,10 +377,21 @@ export default function InventoryPage() {
                                             </select>
                                         </div>
                                         <div className="group">
-                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block group-focus-within:text-primary transition-colors">Product Image URL</label>
-                                            <div className="relative">
-                                                <Box className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                                <input className="input-field w-full pl-12" placeholder="https://example.com/image.jpg" value={formData.image} onChange={e => setFormData({ ...formData, image: e.target.value })} />
+                                            <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 block group-focus-within:text-primary transition-colors">Product Image</label>
+                                            <div className="flex gap-4 items-start">
+                                                <div className="w-24 h-24 rounded-2xl bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+                                                    {formData.image ? <img src={formData.image} className="w-full h-full object-cover" /> : <ImageIcon size={32} className="opacity-20" />}
+                                                </div>
+                                                <div className="flex-1 space-y-3">
+                                                    <div className="relative">
+                                                        <Box className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                                        <input className="input-field w-full pl-12 text-[10px]" placeholder="Image URL (Auto-filled on upload)" value={formData.image} onChange={e => setFormData({ ...formData, image: e.target.value })} />
+                                                    </div>
+                                                    <label className="flex items-center justify-center gap-2 h-10 px-4 bg-primary/10 text-primary border border-primary/20 rounded-xl text-[10px] font-black uppercase cursor-pointer hover:bg-primary/20 transition-all">
+                                                        <Upload size={14} /> Upload via Cloudinary
+                                                        <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                                    </label>
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-4">

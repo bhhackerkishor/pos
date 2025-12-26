@@ -100,41 +100,68 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Documentation & How-to-Use */}
+      <section id="docs" className="py-32 bg-black">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="mb-20 text-center">
+            <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-4">How to Master the <span className="text-primary">Terminal</span></h2>
+            <p className="text-muted-foreground uppercase text-[10px] font-black tracking-[0.4em]">Operational Guide for High-Efficiency Retail</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="glass p-10 rounded-3xl border border-white/5">
+              <h3 className="text-xl font-black italic uppercase tracking-tight mb-6 flex items-center gap-3"><ArrowRight className="text-primary" /> Rapid Billing Flow</h3>
+              <ul className="space-y-4 text-sm text-muted-foreground font-medium">
+                <li className="flex gap-4"><span className="text-primary font-black">01.</span> Use <kbd className="px-2 py-0.5 bg-white/10 rounded text-white text-[10px]">Alt+S</kbd> to jump to search anytime.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">02.</span> Use Arrow Keys to navigate products and <kbd className="px-2 py-0.5 bg-white/10 rounded text-white text-[10px]">Enter</kbd> to add.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">03.</span> Hit <kbd className="px-2 py-0.5 bg-white/10 rounded text-white text-[10px]">Ctrl+Enter</kbd> to trigger the checkout matrix.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">04.</span> For credit sales, select a customer using <kbd className="px-2 py-0.5 bg-white/10 rounded text-white text-[10px]">F4</kbd>.</li>
+              </ul>
+            </div>
+            <div className="glass p-10 rounded-3xl border border-white/5">
+              <h3 className="text-xl font-black italic uppercase tracking-tight mb-6 flex items-center gap-3"><ArrowRight className="text-primary" /> Inventory Management</h3>
+              <ul className="space-y-4 text-sm text-muted-foreground font-medium">
+                <li className="flex gap-4"><span className="text-primary font-black">01.</span> Manage your products in the <Link href="/inventory" className="text-white hover:underline">Vault</Link>.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">02.</span> Set "Low Stock Alerts" to receive automated warnings.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">03.</span> Configure "Wholesale Pricing" for bulk transaction efficiency.</li>
+                <li className="flex gap-4"><span className="text-primary font-black">04.</span> Track profit velocity in the deep analytics engine.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Credit Section */}
-      <section id="about" className="py-48 relative overflow-hidden">
+      <section id="about" className="py-48 relative overflow-hidden bg-white/5">
         <div className="max-w-4xl mx-auto px-8 text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
-            className="glass p-16 rounded-[4rem] border border-white/5 relative z-10"
+            className="glass p-16 rounded-[4rem] border border-white/5 relative z-10 bg-black/50"
           >
             <ShieldCheck size={48} className="mx-auto text-primary mb-8" />
-            <h2 className="text-4xl font-black italic uppercase tracking-tighter mb-8">Developed by KISHORE</h2>
+            <h2 className="text-4xl font-black italic uppercase tracking-tighter mb-8 text-white">System Architect</h2>
             <p className="text-muted-foreground text-lg mb-12">
-              This project was architected and developed with a focus on visual performance and operational efficiency.
-              Designed to be the gold standard for independent retail management.
+              Engineered with precision by <span className="text-primary font-black italic">KISHORE</span>.
+              This platform represents the pinnacle of retail management technology, designed for speed, scale, and visual excellence.
             </p>
             <div className="flex items-center justify-center gap-4">
               <div className="h-px flex-1 bg-white/10"></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary">Est. 2025</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-primary italic">Handcrafted for OHM SAKTHI STORE</span>
               <div className="h-px flex-1 bg-white/10"></div>
             </div>
           </motion.div>
         </div>
-        {/* Background Text */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02]">
-          <span className="text-[40vw] font-black italic uppercase leading-none">POS</span>
-        </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-white/5">
+      <footer className="py-12 border-t border-white/5 bg-black">
         <div className="max-w-7xl mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-8">
           <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">© 2025 OHM SAKTHI STORE • High Performance POS</span>
           <div className="flex items-center gap-8">
             <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors">Privacy</a>
             <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors">Terms</a>
-            <a href="#" className="text-[10px] font-black uppercase tracking-widest text-primary">Built by Kishore</a>
+            <div className="h-4 w-px bg-white/10"></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary italic">Built by Kishore</span>
           </div>
         </div>
       </footer>

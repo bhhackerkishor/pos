@@ -25,26 +25,50 @@ import api from '@/lib/api';
 export default function Dashboard() {
     const [stats, setStats] = useState<any>(null);
     const [chartData, setChartData] = useState<any[]>([]);
+    const [period, setPeriod] = useState<'live' | 'day' | 'week' | 'custom'>('live');
+    const [customRange, setCustomRange] = useState({ start: '', end: '' });
+
+    const fetchData = async () => {
+        try {
+            let statsUrl = '/analytics/stats';
+            let chartUrl = '/analytics/chart?days=7';
+
+            if (period === 'day') {
+                const today = new Date().toISOString().split('T')[0];
+                statsUrl += `?startDate=${today}&endDate=${today}`;
+            } else if (period === 'week') {
+                const end = new Date().toISOString().split('T')[0];
+                const start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                statsUrl += `?startDate=${start}&endDate=${end}`;
+                chartUrl = '/analytics/chart?days=7';
+            } else if (period === 'custom' && customRange.start && customRange.end) {
+                statsUrl += `?startDate=${customRange.start}&endDate=${customRange.end}`;
+                const diff = Math.ceil((new Date(customRange.end).getTime() - new Date(customRange.start).getTime()) / (1000 * 60 * 60 * 24));
+                chartUrl = `/analytics/chart?days=${Math.max(7, diff)}`;
+            }
+
+            const [statsRes, chartRes] = await Promise.all([
+                api.get(statsUrl),
+                api.get(chartUrl)
+            ]);
+            setStats(statsRes.data.data);
+            setChartData(chartRes.data.data.map((d: any) => ({
+                name: new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit' }),
+                sales: d.totalSales,
+                profit: d.totalProfit
+            })));
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [statsRes, chartRes] = await Promise.all([
-                    api.get('/analytics/stats'),
-                    api.get('/analytics/chart')
-                ]);
-                setStats(statsRes.data.data);
-                setChartData(chartRes.data.data.map((d: any) => ({
-                    name: new Date(d.date).toLocaleDateString('en-IN', { weekday: 'short' }),
-                    sales: d.totalSales,
-                    profit: d.totalProfit
-                })));
-            } catch (err) {
-                console.error(err);
-            }
-        };
         fetchData();
-    }, []);
+        if (period === 'live') {
+            const interval = setInterval(fetchData, 30000); // Refresh every 30s for live
+            return () => clearInterval(interval);
+        }
+    }, [period, customRange]);
 
     const statCards = [
         { label: "Today's Revenue", value: stats?.totalSales || 0, icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
@@ -56,14 +80,69 @@ export default function Dashboard() {
     return (
         <DashboardLayout>
             <div className="space-y-10">
-                <header className="flex flex-wrap items-end justify-between gap-6">
+                <header className="flex flex-wrap items-center justify-between gap-6">
                     <div>
                         <h1 className="text-5xl font-black text-foreground tracking-tighter italic">COMMAND CENTER</h1>
-                        <p className="text-muted-foreground mt-2 font-medium uppercase text-[10px] tracking-[0.3em]">Real-time Performance Metrics</p>
+                        <p className="text-muted-foreground mt-2 font-medium uppercase text-[10px] tracking-[0.3em]">
+                            {period === 'live' ? 'Real-time Performance Metrics' : `Analytics for ${period.toUpperCase()}`}
+                        </p>
                     </div>
-                    <div className="flex bg-secondary p-1.5 rounded-2xl border border-border shadow-inner">
-                        <button className="px-8 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-primary/20">Live</button>
-                        <button className="px-8 py-2.5 text-muted-foreground rounded-xl text-xs font-black uppercase tracking-widest hover:text-foreground transition-colors">History</button>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {period === 'custom' && (
+                            <div className="flex items-center gap-2 bg-secondary/50 p-1.5 rounded-2xl border border-border">
+                                <input
+                                    type="date"
+                                    className="bg-transparent text-[10px] font-black uppercase px-2 focus:outline-none"
+                                    value={customRange.start}
+                                    onChange={(e) => setCustomRange({ ...customRange, start: e.target.value })}
+                                />
+                                <span className="text-muted-foreground">→</span>
+                                <input
+                                    type="date"
+                                    className="bg-transparent text-[10px] font-black uppercase px-2 focus:outline-none"
+                                    value={customRange.end}
+                                    onChange={(e) => setCustomRange({ ...customRange, end: e.target.value })}
+                                />
+                            </div>
+                        )}
+                        <div className="flex bg-secondary p-1.5 rounded-2xl border border-border shadow-inner">
+                            <button
+                                onClick={() => setPeriod('live')}
+                                className={cn(
+                                    "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                    period === 'live' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Live
+                            </button>
+                            <button
+                                onClick={() => setPeriod('day')}
+                                className={cn(
+                                    "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                    period === 'day' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Day
+                            </button>
+                            <button
+                                onClick={() => setPeriod('week')}
+                                className={cn(
+                                    "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                    period === 'week' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Week
+                            </button>
+                            <button
+                                onClick={() => setPeriod('custom')}
+                                className={cn(
+                                    "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                    period === 'custom' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                Custom
+                            </button>
+                        </div>
                     </div>
                 </header>
 
