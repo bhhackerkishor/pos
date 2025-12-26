@@ -229,59 +229,198 @@ export default function POSPage() {
     };
 
     const handlePrint = (sale: any) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
+        const printWindow = window.open('', '_blank')
+        if (!printWindow) return
 
-        const showName = shopSettings?.receiptShowName ?? true;
-        const showQty = shopSettings?.receiptShowQty ?? true;
-        const showPrice = shopSettings?.receiptShowPrice ?? true;
-        const showTax = shopSettings?.receiptShowTax ?? true;
-        const printerWidth = shopSettings?.thermalPrinterWidth || '80mm';
+        const printerWidth = shopSettings?.thermalPrinterWidth || '80mm'
+        const is58mm = printerWidth.includes('58')
 
         printWindow.document.write(`
-      <html>
-        <head>
-          <style>
-            @page { margin: 0; }
-            body { font-family: 'Courier New', monospace; width: ${printerWidth}; padding: 10px; color: #000; font-weight: bold; }
-            .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 15px; }
-            .item { display: flex; justify-content: space-between; font-size: 14px; margin: 8px 0; }
-            .total { border-top: 2px solid #000; padding-top: 10px; margin-top: 15px; }
-            .footer { text-align: center; font-size: 13px; margin-top: 30px; border-top: 1px dashed #000; padding-top: 10px; }
-            .balance-row { color: #555; font-size: 12px; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div class="header">
-            <h2 style="margin:0">${shopSettings?.shopName || 'OHM SAKTHI STORE'}</h2>
-            ${shopSettings?.gstin ? `<p style="margin:5px 0; font-size: 12px">GSTIN: ${shopSettings.gstin}</p>` : ''}
-            <p style="margin:5px 0; font-size: 11px">INV: ${sale.invoiceNumber}</p>
-            <p style="margin:5px 0; font-size: 11px">${new Date(sale.createdAt).toLocaleString()}</p>
-            <p style="margin:5px 0; font-size: 12px">CUSTOMER: ${sale.customerDetails?.name || sale.customer?.name || 'Walk-in'}</p>
-          </div>
-          <div class="items">
-            ${sale.items.map((i: any) => `
-              <div class="item">
-                <span>${showName ? i.name : ''} ${showQty ? `x${i.quantity}` : ''}</span>
-                <span>${showPrice ? formatCurrency(i.price * i.quantity) : ''}</span>
-              </div>
-            `).join('')}
-          </div>
-          <div class="total">
-            <div class="item"><span>SUBTOTAL</span> <span>${formatCurrency(sale.subTotal)}</span></div>
-            ${showTax ? `<div class="item"><span>Taxes (GST)</span> <span>${formatCurrency(sale.taxTotal)}</span></div>` : ''}
-            <div class="item" style="font-size: 18px; margin-top: 10px;"><strong>GRAND TOTAL</strong> <span>${formatCurrency(sale.grandTotal)}</span></div>
-            ${sale.amountPaid > 0 ? `<div class="item balance-row"><span>PAID</span> <span>${formatCurrency(sale.amountPaid)}</span></div>` : ''}
-            ${sale.changeAmount > 0 ? `<div class="item balance-row"><span>CHANGE</span> <span>${formatCurrency(sale.changeAmount)}</span></div>` : ''}
-            ${sale.paymentStatus === 'pending' || (sale.grandTotal - sale.amountPaid > 0) ? `<div class="item balance-row" style="color:red"><span>DUE (BALANCE)</span> <span>${formatCurrency(sale.grandTotal - sale.amountPaid)}</span></div>` : ''}
-          </div>
-          <div class="footer"><p>Visit Again! ${shopSettings?.address ? `<br/>${shopSettings.address}` : ''}</p></div>
-        </body>
-      </html>
-    `);
-        printWindow.document.close();
-    };
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <title>Receipt</title>
+      <style>
+        @page { margin: 0; }
+        body {
+          font-family: monospace;
+          width: ${printerWidth};
+          margin: 0 auto;
+          padding: ${is58mm ? '6px' : '10px'};
+          color: #000;
+        }
 
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+
+        .header {
+          border-bottom: 1px dashed #000;
+          padding-bottom: 6px;
+          margin-bottom: 6px;
+        }
+
+        .shop-name {
+          font-size: ${is58mm ? '15px' : '18px'};
+          font-weight: bold;
+        }
+
+        .meta {
+          font-size: ${is58mm ? '10px' : '11px'};
+          margin-top: 3px;
+        }
+
+        .item-row {
+          display: flex;
+          align-items: flex-start;
+          margin: 3px 0;
+          font-size: ${is58mm ? '11px' : '13px'};
+        }
+
+        .header-row {
+          font-weight: bold;
+        }
+
+        /* ===== COLUMN LAYOUT SWITCH ===== */
+
+        /* 80mm / 76mm */
+        .name-lg { width: 48%; }
+        .qty-lg { width: 12%; text-align: center; }
+        .rate-lg { width: 18%; text-align: right; }
+        .amt-lg { width: 22%; text-align: right; }
+
+        /* 58mm */
+        .name-sm { width: 65%; }
+        .qty-sm { width: 15%; text-align: center; }
+        .amt-sm { width: 20%; text-align: right; }
+
+        .name {
+          word-break: break-word;
+        }
+
+        /* AUTO FONT SHRINK */
+        .name.md { font-size: ${is58mm ? '11px' : '13px'}; }
+        .name.sm { font-size: ${is58mm ? '10px' : '12px'}; }
+        .name.xs { font-size: ${is58mm ? '9px' : '11px'}; }
+
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 5px 0;
+        }
+
+        .totals .row {
+          display: flex;
+          justify-content: space-between;
+          font-size: ${is58mm ? '11px' : '13px'};
+          margin: 2px 0;
+        }
+
+        .grand {
+          font-size: ${is58mm ? '14px' : '17px'};
+          font-weight: bold;
+          border-top: 2px solid #000;
+          padding-top: 4px;
+          margin-top: 4px;
+        }
+
+        .footer {
+          border-top: 1px dashed #000;
+          margin-top: 8px;
+          padding-top: 6px;
+          font-size: ${is58mm ? '9px' : '11px'};
+          text-align: center;
+        }
+      </style>
+    </head>
+
+    <body onload="window.print(); window.close();">
+
+      <!-- HEADER -->
+      <div class="header center">
+        <div class="shop-name">
+          ${shopSettings?.shopName || 'OHM SAKTHI STORE'}
+        </div>
+        ${shopSettings?.gstin ? `<div class="meta">GSTIN: ${shopSettings.gstin}</div>` : ''}
+        <div class="meta">
+          INV: ${sale.invoiceNumber}<br/>
+          ${new Date(sale.createdAt).toLocaleString()}<br/>
+          CUSTOMER: ${sale.customerDetails?.name || sale.customer?.name || 'Walk-in'}
+        </div>
+      </div>
+
+      ${is58mm
+                ? `
+        <!-- 58MM HEADER -->
+        <div class="item-row header-row">
+          <span class="name name-sm">ITEM</span>
+          <span class="qty-sm">QTY</span>
+          <span class="amt-sm">AMT</span>
+        </div>
+        <div class="divider"></div>
+
+        ${sale.items.map((i: any) => {
+                    const l = i.name.length
+                    const c = l > 28 ? 'xs' : l > 20 ? 'sm' : 'md'
+                    return `
+            <div class="item-row">
+              <span class="name name-sm ${c}">${i.name}</span>
+              <span class="qty-sm">${i.quantity}</span>
+              <span class="amt-sm">${formatCurrency(i.price * i.quantity)}</span>
+            </div>
+          `
+                }).join('')}
+        `
+                : `
+        <!-- 80MM HEADER -->
+        <div class="item-row header-row">
+          <span class="name name-lg">ITEM</span>
+          <span class="qty-lg">QTY</span>
+          <span class="rate-lg">RATE</span>
+          <span class="amt-lg">AMT</span>
+        </div>
+        <div class="divider"></div>
+
+        ${sale.items.map((i: any) => {
+                    const l = i.name.length
+                    const c = l > 32 ? 'xs' : l > 24 ? 'sm' : 'md'
+                    return `
+            <div class="item-row">
+              <span class="name name-lg ${c}">${i.name}</span>
+              <span class="qty-lg">${i.quantity}</span>
+              <span class="rate-lg">${formatCurrency(i.price)}</span>
+              <span class="amt-lg">${formatCurrency(i.price * i.quantity)}</span>
+            </div>
+          `
+                }).join('')}
+        `
+            }
+
+      <div class="divider"></div>
+
+      <!-- TOTALS -->
+      <div class="totals">
+        <div class="row">
+          <span>SUBTOTAL</span>
+          <span>${formatCurrency(sale.subTotal)}</span>
+        </div>
+
+        <div class="row">
+          <span>TOTAL</span>
+          <span>${formatCurrency(sale.grandTotal)}</span>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="footer">
+        Thank you for shopping!<br/>
+        ${shopSettings?.address || ''}
+      </div>
+
+    </body>
+  </html>
+  `)
+
+        printWindow.document.close()
+    };
     return (
         <DashboardLayout>
             <div className="flex flex-col h-full gap-8">

@@ -72,55 +72,165 @@ export default function ReportsPage() {
     };
 
     const handlePrint = (sale: any) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
+        const printWindow = window.open('', '_blank')
+        if (!printWindow) return
+
+        const printerWidth = shopSettings?.thermalPrinterWidth || '80mm'
+        const is58mm = printerWidth.includes('58')
 
         printWindow.document.write(`
-      <html>
-        <head>
-          <style>
-            @page { margin: 0; }
-            body { 
-              font-family: 'Courier New', monospace; 
-              width: 80mm; 
-              padding: 10px;
-              color: #000;
-            }
-            .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-            .item { display: flex; justify-content: space-between; font-size: 14px; margin: 5px 0; }
-            .total { border-top: 1px dashed #000; padding-top: 5px; margin-top: 10px; }
-            .footer { text-align: center; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body onload="window.print(); window.close();">
-          <div class="header">
-            <h3>OHM SAKTHI STORE</h3>
-            <p>GSTIN: 27AAACA1234A1Z1</p>
-            <p>INV: ${sale.invoiceNumber}</p>
-            <p>Customer: ${sale.customerDetails?.name || sale.customer?.name || 'Walk-in'}</p>
-            <p>${new Date(sale.createdAt).toLocaleString()}</p>
+  <html>
+    <head>
+      <meta charset="UTF-8" />
+      <title>Receipt</title>
+      <style>
+        @page { margin: 0; }
+        body {
+          font-family: monospace;
+          width: ${printerWidth};
+          padding: ${is58mm ? '6px' : '10px'};
+          color: #000;
+        }
+
+        .center { text-align: center; }
+        .bold { font-weight: bold; }
+
+        .header {
+          text-align: center;
+          border-bottom: 1px dashed #000;
+          padding-bottom: 6px;
+          margin-bottom: 6px;
+        }
+
+        .shop {
+          font-size: ${is58mm ? '15px' : '18px'};
+          font-weight: bold;
+        }
+
+        .meta {
+          font-size: ${is58mm ? '10px' : '11px'};
+          margin-top: 2px;
+        }
+
+        .row {
+          display: flex;
+          justify-content: space-between;
+          font-size: ${is58mm ? '11px' : '13px'};
+          margin: 3px 0;
+        }
+
+        /* ===== COLUMN SYSTEM ===== */
+        .item-row {
+          display: flex;
+          margin: 3px 0;
+          font-size: ${is58mm ? '11px' : '13px'};
+        }
+
+        .name {
+          width: ${is58mm ? '65%' : '55%'};
+          word-break: break-word;
+        }
+
+        .qty {
+          width: ${is58mm ? '15%' : '15%'};
+          text-align: center;
+        }
+
+        .amt {
+          width: ${is58mm ? '20%' : '30%'};
+          text-align: right;
+        }
+
+        /* AUTO FONT SHRINK */
+        .name.md { font-size: inherit; }
+        .name.sm { font-size: ${is58mm ? '10px' : '12px'}; }
+        .name.xs { font-size: ${is58mm ? '9px' : '11px'}; }
+
+        .divider {
+          border-top: 1px dashed #000;
+          margin: 5px 0;
+        }
+
+        .total {
+          border-top: 1px dashed #000;
+          margin-top: 6px;
+          padding-top: 4px;
+        }
+
+        .grand {
+          font-size: ${is58mm ? '14px' : '17px'};
+          font-weight: bold;
+          margin-top: 4px;
+        }
+
+        .footer {
+          text-align: center;
+          font-size: ${is58mm ? '9px' : '11px'};
+          margin-top: 10px;
+        }
+      </style>
+    </head>
+
+    <body onload="window.print(); window.close();">
+
+      <!-- HEADER -->
+      <div class="header">
+        <div class="shop">OHM SAKTHI STORE</div>
+        <div class="meta">GSTIN: 27AAACA1234A1Z1</div>
+        <div class="meta">INV: ${sale.invoiceNumber}</div>
+        <div class="meta">Customer: ${sale.customerDetails?.name || sale.customer?.name || 'Walk-in'}</div>
+        <div class="meta">${new Date(sale.createdAt).toLocaleString()}</div>
+      </div>
+
+      <!-- ITEM HEADER -->
+      <div class="item-row bold">
+        <span class="name">ITEM</span>
+        <span class="qty">QTY</span>
+        <span class="amt">AMT</span>
+      </div>
+      <div class="divider"></div>
+
+      <!-- ITEMS -->
+      ${sale.items.map((i: any) => {
+            const len = i.name.length
+            const cls = len > 28 ? 'xs' : len > 20 ? 'sm' : 'md'
+            return `
+          <div class="item-row">
+            <span class="name ${cls}">${i.name}</span>
+            <span class="qty">${i.quantity}</span>
+            <span class="amt">${formatCurrency(i.price * i.quantity)}</span>
           </div>
-          <div class="items">
-            ${sale.items.map((i: any) => `
-              <div class="item">
-                <span>${i.name} x${i.quantity}</span>
-                <span>${formatCurrency(i.price * i.quantity)}</span>
-              </div>
-            `).join('')}
-          </div>
-          <div class="total">
-            <div class="item"><strong>SUBTOTAL</strong> <span>${formatCurrency(sale.subTotal)}</span></div>
-            <div class="item"><strong>TAX (GST)</strong> <span>${formatCurrency(sale.taxTotal)}</span></div>
-            <div class="item" style="font-size: 18px;"><strong>GRAND TOTAL</strong> <span>${formatCurrency(sale.grandTotal)}</span></div>
-          </div>
-          <div class="footer">
-            <p>Thank You For Visting!</p>
-          </div>
-        </body>
-      </html>
-    `);
-        printWindow.document.close();
-    };
+        `
+        }).join('')}
+
+      <!-- TOTAL -->
+      <div class="total">
+        <div class="row">
+          <span>SUBTOTAL</span>
+          <span>${formatCurrency(sale.subTotal)}</span>
+        </div>
+        <div class="row">
+          <span>GST</span>
+          <span>${formatCurrency(sale.taxTotal)}</span>
+        </div>
+        <div class="row grand">
+          <span>TOTAL</span>
+          <span>${formatCurrency(sale.grandTotal)}</span>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="footer">
+        Thank you for visiting!
+      </div>
+
+    </body>
+  </html>
+  `)
+
+        printWindow.document.close()
+    }
+
 
     const filteredSales = sales.filter(s =>
         s.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
