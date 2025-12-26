@@ -3,6 +3,10 @@ const SaleSchema = new Schema({
     invoiceNumber: { type: String, required: true, unique: true },
     cashier: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     customer: { type: Schema.Types.ObjectId, ref: 'Customer' },
+    customerDetails: {
+        name: { type: String },
+        phone: { type: String }
+    },
     items: [{
             product: { type: Schema.Types.ObjectId, ref: 'Product' },
             name: String,
@@ -31,4 +35,3 @@ const SaleSchema = new Schema({
     synced: { type: Boolean, default: true },
 }, { timestamps: true });
 export default mongoose.model('Sale', SaleSchema);
-meditation: true;

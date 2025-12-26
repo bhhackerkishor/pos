@@ -10,4 +10,3 @@ const CustomerSchema = new Schema({
     outstandingBalance: { type: Number, default: 0 },
 }, { timestamps: true });
 export default mongoose.model('Customer', CustomerSchema);
-meditation: true;

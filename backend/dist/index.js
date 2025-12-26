@@ -9,6 +9,9 @@ import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import saleRoutes from './routes/saleRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
+import customerRoutes from './routes/customerRoutes.js';
+import settingsRoutes from './routes/settingsRoutes.js';
 // Load env vars
 dotenv.config();
 const app = express();
@@ -36,6 +39,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/sales', saleRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/settings', settingsRoutes);
 app.get('/', (req, res) => {
     res.send('Production POS API is running...');
 });
