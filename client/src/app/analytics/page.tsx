@@ -18,10 +18,74 @@ import {
 } from 'recharts';
 
 type TabType = 'overview' | 'sales' | 'inventory' | 'customers' | 'finance' | 'staff' | 'products';
+interface AnalyticsData {
+    performance: {
+        totalRevenue: number;
+        totalProfit: number;
+        avgTicketSize: number;
+        growth: number;
+        wowGrowth: number;
+        thisWeekRevenue: number;
+        lastWeekRevenue: number;
+    };
+    inventory: {
+        totalStockValue: number;
+        totalRetailValue: number;
+        lowStockItems: number;
+        deadStockCount: number;
+        deadStockList: { _id: string; name: string }[];
+        expiresSoon: {
+            _id: string;
+            name: string;
+            expiryDate: string;
+            stockQuantity: number;
+        }[];
+    };
+    hourlyStats: { _id: number; total: number }[];
+    paymentStats: { _id: string; total: number; count: number }[];
+    retention: {
+        rate: number;
+        total: number;
+        repeat: number;
+    };
+    staffPerformance: {
+        _id: string;
+        name: string;
+        totalRevenue: number;
+        orderCount: number;
+        avgOrderValue: number;
+    }[];
+    topDebtors: {
+        _id: string;
+        name: string;
+        phone: string;
+        outstandingBalance: number;
+    }[];
+    topProducts: {
+        _id: string;
+        totalSold: number;
+        totalRevenue: number;
+    }[];
+    brandStats: {
+        _id: string;
+        productCount: number;
+        totalStockValue: number;
+    }[];
+    categoryStats: {
+        _id: string;
+        revenue: number;
+    }[];
+    categoryPerformance: {
+        _id: string;
+        unitsSold: number;
+        profit: number;
+    }[];
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default function EnterpriseAnalytics() {
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<AnalyticsData | null>(null);
+
 
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -138,7 +202,7 @@ export default function EnterpriseAnalytics() {
                                         label="Avg Ticket Size"
                                         value={formatCurrency(data.performance.avgTicketSize)}
                                         trend={0}
-                                        icon={ShoppingCart}
+                                        icon={ShoppingBag}
                                         color="text-indigo-500"
                                         desc="Median spend per transaction"
                                     />
