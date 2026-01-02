@@ -63,18 +63,19 @@ export const useSyncStore = create<SyncState>((set, get) => ({
             toast.loading('Updating product & supplier data...', { id: 'pull-data' });
 
             const [productsRes, suppliersRes] = await Promise.all([
-                api.get('/products'),
+                api.get('/products?limit=10000'),
                 api.get('/suppliers')
             ]);
 
             // Upsert into IndexedDB
             await db.transaction('rw', [db.products, db.suppliers], async () => {
                 await db.products.clear();
-                await db.products.bulkAdd(productsRes.data.products || []);
+                await db.products.bulkAdd(productsRes.data.data || []);
 
                 await db.suppliers.clear();
                 await db.suppliers.bulkAdd(suppliersRes.data.suppliers || []);
             });
+
 
             toast.success('Data updated locally', { id: 'pull-data' });
         } catch (err) {

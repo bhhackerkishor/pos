@@ -14,8 +14,10 @@ import {
     ChevronRight,
     Sun,
     Moon,
-    Layers
+    Layers,
+    Truck
 } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -26,7 +28,9 @@ const menuItems = [
     { icon: ShoppingCart, label: 'POS Terminal', href: '/pos' },
     { icon: Package, label: 'Inventory', href: '/inventory' },
     { icon: Layers, label: 'Categories', href: '/categories' }, // Added Categories
+    { icon: Truck, label: 'Suppliers', href: '/suppliers' },
     { icon: Users, label: 'Customers', href: '/customers' },
+
     { icon: BarChart3, label: 'Reports', href: '/reports' },
     { icon: BarChart3, label: 'Analytics', href: '/analytics' },
     { icon: Settings, label: 'Settings', href: '/settings' },

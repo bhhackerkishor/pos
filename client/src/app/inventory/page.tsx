@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import Link from 'next/link';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Edit2, Trash2, Download, Package, TrendingUp, AlertTriangle, BarChart3, X, Barcode, Tag, Layers, DollarSign, Box, Upload, ImageIcon } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
@@ -204,9 +206,15 @@ export default function InventoryPage() {
                         <button onClick={handleExport} className="flex items-center gap-3 px-8 h-14 glass rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-secondary transition-all border border-border">
                             <Download size={18} /> Export
                         </button>
+                        <Link href="/inventory/barcodes">
+                            <button className="flex items-center gap-3 px-8 h-14 glass rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-secondary transition-all border border-border">
+                                <Barcode size={18} /> Barcodes
+                            </button>
+                        </Link>
                         <button onClick={() => handleOpenModal()} className="btn-primary h-14 px-8 text-xs tracking-widest uppercase font-black">
                             <Plus size={20} className="mr-1" /> Add Product
                         </button>
+
                     </div>
                 </header>
 

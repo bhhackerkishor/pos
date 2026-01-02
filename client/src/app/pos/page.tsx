@@ -37,7 +37,8 @@ export default function POSPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [products, setProducts] = useState<any[]>([]);
     const { items, addItem, removeItem, updateQuantity, clearCart, holdBill, heldBills, resumeBill } = useCartStore();
-    const { isOnline, setOnline, queueSale, syncSales } = useSyncStore();
+    const { isOnline, setOnline, syncData, pullMasterData } = useSyncStore();
+
 
     // UI States
     const [loading, setLoading] = useState(false);
@@ -77,7 +78,7 @@ export default function POSPage() {
         fetchInitialData();
         const handleStatusChange = () => {
             setOnline(navigator.onLine);
-            if (navigator.onLine) syncSales();
+            if (navigator.onLine) syncData();
         };
         window.addEventListener('online', handleStatusChange);
         window.addEventListener('offline', handleStatusChange);
@@ -128,7 +129,7 @@ export default function POSPage() {
         };
         window.addEventListener('keydown', handleKeyDown);
 
-        if (navigator.onLine) syncSales();
+        if (navigator.onLine) syncData();
         return () => {
             window.removeEventListener('online', handleStatusChange);
             window.removeEventListener('offline', handleStatusChange);
@@ -165,6 +166,11 @@ export default function POSPage() {
 
             let data = await (activeCategory !== 'all' ? query.toArray() : db.products.toArray());
 
+            // If local DB is empty and we're online, try pulling master data
+            if (data.length === 0 && isOnline && !searchTerm && activeCategory === 'all') {
+                await pullMasterData();
+                data = await db.products.toArray();
+            }
             if (searchTerm) {
                 const lowerSearch = searchTerm.toLowerCase();
                 data = data.filter((p: any) =>
@@ -274,7 +280,7 @@ export default function POSPage() {
 
             // Sync in background if online
             if (isOnline) {
-                syncSales();
+                syncData();
             }
 
             clearCart(); setCustomerName(''); setCustomerPhone(''); setSelectedCustomerId(null); setReceivedAmount(''); setShowCheckout(false);

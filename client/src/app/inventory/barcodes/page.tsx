@@ -7,7 +7,10 @@ import { motion } from 'framer-motion';
 import { db } from '@/lib/db';
 import { generateBarcode, barcodePrintStyles } from '@/lib/barcodeUtils';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useSyncStore } from '@/store/useSyncStore';
+import { RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+
 
 export default function BarcodeGeneratorPage() {
     const [products, setProducts] = useState<any[]>([]);
@@ -16,15 +19,24 @@ export default function BarcodeGeneratorPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
     const [shopName, setShopName] = useState('My Shop');
 
+    const { isOnline, pullMasterData } = useSyncStore();
+
     useEffect(() => {
         loadProducts();
     }, []);
 
+
     const loadProducts = async () => {
         const data = await db.products.toArray();
-        console.log(data)
-        setProducts(data);
+        if (data.length === 0 && isOnline) {
+            await pullMasterData();
+            const newData = await db.products.toArray();
+            setProducts(newData);
+        } else {
+            setProducts(data);
+        }
     };
+
 
     const toggleSelect = (p: any) => {
         if (selectedProducts.find(item => item._id === p._id)) {
@@ -91,12 +103,20 @@ export default function BarcodeGeneratorPage() {
                     </div>
                     <div className="flex gap-4">
                         <button
+                            onClick={async () => { await pullMasterData(); loadProducts(); }}
+                            className="w-14 h-14 glass rounded-2xl flex items-center justify-center text-primary border border-border hover:bg-secondary transition-all"
+                            title="Sync Products"
+                        >
+                            <RefreshCw size={20} />
+                        </button>
+                        <button
                             onClick={handlePrint}
                             className="flex items-center gap-2 px-8 h-14 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 transition-all"
                         >
                             <Printer size={18} /> Print Labels ({selectedProducts.length})
                         </button>
                     </div>
+
                 </div>
 
                 <div className="flex gap-6">
