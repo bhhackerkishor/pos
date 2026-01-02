@@ -11,17 +11,23 @@ export class SaleService {
         session.startTransaction();
 
         try {
+            console.log(`Processing sale: ${saleData.invoiceNumber || 'NEW'} (OfflineID: ${saleData.offlineId})`);
             const {
+
                 items,
                 customerId,
                 customerName, // For walk-in customers
                 customerPhone,
                 paymentMethod,
                 amountPaid,
-                discountTotal,
+                discountTotal: rawDiscountTotal,
                 invoiceNumber: clientInvoiceNumber,
                 offlineId
             } = saleData;
+
+            const safeItems = Array.isArray(items) ? items : [];
+            const discountTotal = Number(rawDiscountTotal) || 0;
+            const safeAmountPaid = Number(amountPaid) || 0;
 
             // 1. Check for duplicate offlineId
             if (offlineId) {
@@ -44,9 +50,9 @@ export class SaleService {
             let calculatedSubTotal = 0;
             let calculatedTaxTotal = 0;
 
-            for (const item of items) {
+            for (const item of safeItems) {
                 const product = await Product.findById(item._id).session(session);
-                if (!product) throw new Error(`Product ${item.name} not found`);
+                if (!product) continue; // Skip non-existent products instead of crashing
                 //if (product.stockQuantity < item.quantity) throw new Error(`Insufficient stock for ${product.name}`);
 
                 // Determine correct price (Wholesale vs Retail)
@@ -71,22 +77,27 @@ export class SaleService {
                     timestamp: new Date()
                 }], { session });
 
-                const itemTax = (appliedPrice * item.quantity * product.taxRate) / 100;
-                const itemSubTotal = (appliedPrice * item.quantity);
+                const itemQty = Number(item.quantity) || 0;
+                const itemPrice = Number(appliedPrice) || 0;
+                const itemRawDiscount = Number(item.discount) || 0;
+                const prodTaxRate = Number(product.taxRate) || 0;
+
+                const itemTax = (itemPrice * itemQty * prodTaxRate) / 100;
+                const itemSubTotal = (itemPrice * itemQty);
 
                 processedItems.push({
                     product: product._id,
                     name: product.name,
-                    quantity: item.quantity,
-                    price: appliedPrice,
-                    costPrice: product.costPrice,
-                    taxRate: product.taxRate,
-                    taxAmount: itemTax,
-                    discount: item.discount || 0,
-                    subTotal: itemSubTotal - (item.discount || 0)
+                    quantity: itemQty,
+                    price: itemPrice,
+                    costPrice: Number(product.costPrice) || 0,
+                    taxRate: prodTaxRate,
+                    taxAmount: Number(itemTax.toFixed(2)),
+                    discount: itemRawDiscount,
+                    subTotal: Number((itemSubTotal - itemRawDiscount).toFixed(2))
                 });
 
-                calculatedSubTotal += itemSubTotal;
+                calculatedSubTotal += (itemSubTotal - itemRawDiscount);
                 calculatedTaxTotal += itemTax;
             }
 
@@ -95,9 +106,19 @@ export class SaleService {
             const sgst = calculatedTaxTotal / 2;
 
             // 4. Create Sale Record
-            const grandTotal = calculatedSubTotal + calculatedTaxTotal - discountTotal;
-            const changeAmount = amountPaid >= grandTotal ? (amountPaid - grandTotal) : 0;
-            const outstanding = amountPaid < grandTotal ? (grandTotal - amountPaid) : 0;
+            const rawGrandTotal = (calculatedSubTotal + calculatedTaxTotal) - discountTotal;
+            console.log('Raw Grand Total:', rawGrandTotal);
+            const grandTotal = Number(Math.max(0, rawGrandTotal).toFixed(2));
+            console.log('Grand Total:', grandTotal);
+            console.log('Discount Total:', discountTotal);
+            console.log('Calculated Sub Total:', calculatedSubTotal);
+            console.log('Calculated Tax Total:', calculatedTaxTotal);
+            console.log('Safe Amount Paid:', safeAmountPaid);
+
+            if (isNaN(grandTotal)) throw new Error('Grand total calculation resulted in NaN');
+
+            const changeAmount = safeAmountPaid >= grandTotal ? (safeAmountPaid - grandTotal) : 0;
+            const outstanding = safeAmountPaid < grandTotal ? (grandTotal - safeAmountPaid) : 0;
 
             const sale = new Sale({
                 invoiceNumber,
@@ -109,24 +130,23 @@ export class SaleService {
                     phone: customerPhone || ''
                 },
                 items: processedItems,
-                totalQuantity: items.reduce((acc: number, i: any) => acc + i.quantity, 0),
-                subTotal: calculatedSubTotal,
-                taxTotal: calculatedTaxTotal,
-                cgst,
-                sgst,
+                totalQuantity: Number(processedItems.reduce((acc, i) => acc + i.quantity, 0).toFixed(2)),
+                subTotal: Number(calculatedSubTotal.toFixed(2)),
+                taxTotal: Number(calculatedTaxTotal.toFixed(2)),
+                cgst: Number((calculatedTaxTotal / 2).toFixed(2)),
+                sgst: Number((calculatedTaxTotal / 2).toFixed(2)),
                 igst: 0,
-                discountTotal,
-                grandTotal,
+                discountTotal: Number(discountTotal.toFixed(2)),
+                grandTotal: grandTotal,
                 paymentMethod,
-                amountPaid: amountPaid > grandTotal ? grandTotal : amountPaid,
-                changeAmount,
+                amountPaid: Number(Math.min(safeAmountPaid, grandTotal).toFixed(2)),
+                changeAmount: Number(changeAmount.toFixed(2)),
                 status: 'completed',
                 paymentStatus: outstanding > 0 ? 'pending' : 'paid',
                 synced: true
             });
 
             await sale.save({ session });
-            await sale.populate('customer');
 
             // 5. Update Customer Loyalty & Balance (if registered)
             let targetCustomerId = customerId;
@@ -134,15 +154,15 @@ export class SaleService {
                 const existingCustomer = await Customer.findOne({ phone: customerPhone }).session(session);
                 if (existingCustomer) {
                     targetCustomerId = existingCustomer._id;
-                    sale.customer = targetCustomerId as any; // Cast for mongoose id
-                    sale.customerDetails = undefined;
+                    await Sale.findByIdAndUpdate(sale._id, { customer: targetCustomerId, customerDetails: undefined }).session(session);
+                    sale.customer = targetCustomerId as any;
                 }
             }
 
             if (targetCustomerId) {
                 await Customer.findByIdAndUpdate(targetCustomerId, {
                     $inc: {
-                        loyaltyPoints: Math.floor(sale.grandTotal / 100),
+                        loyaltyPoints: Math.max(0, Math.floor(grandTotal / 100)),
                         outstandingBalance: outstanding
                     },
                     $set: { lastVisit: new Date() }
@@ -153,30 +173,45 @@ export class SaleService {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
-            const profit = processedItems.reduce((acc, i) => acc + (i.subTotal - (i.costPrice * i.quantity)), 0);
+            const profit = processedItems.reduce((acc, i) => {
+                const itemCost = i.costPrice || 0;
+                return acc + (i.subTotal - (itemCost * i.quantity));
+            }, 0);
+
 
             await DailyReport.findOneAndUpdate(
                 { date: today },
                 {
                     $inc: {
-                        totalSales: sale.grandTotal,
-                        totalProfit: profit,
-                        totalTax: sale.taxTotal,
-                        totalDiscount: discountTotal,
+                        totalSales: Number(sale.grandTotal.toFixed(2)),
+                        totalProfit: Number(profit.toFixed(2)),
+                        totalTax: Number(sale.taxTotal.toFixed(2)),
+                        totalDiscount: Number(discountTotal.toFixed(2)),
                         orderCount: 1,
-                        [`paymentBreakdown.${paymentMethod}`]: sale.amountPaid,
-                        'paymentBreakdown.credit': outstanding
+                        [`paymentBreakdown.${paymentMethod}`]: Number(sale.amountPaid.toFixed(2)),
+                        'paymentBreakdown.credit': Number(outstanding.toFixed(2))
                     }
                 },
                 { upsert: true, session }
-            ).session(session); // Ensure session is used
+            );
 
             await session.commitTransaction();
             return sale;
-        } catch (error) {
+        } catch (error: any) {
             if (session.inTransaction()) {
                 await session.abortTransaction();
             }
+
+            // Handle WriteConflict - Retry with jitter
+            if (error.code === 112 || error.message.includes('Write conflict')) {
+                const jitter = Math.floor(Math.random() * 100) + 50;
+                console.log(`Write conflict detected, retrying in ${jitter}ms...`);
+                await new Promise(resolve => setTimeout(resolve, jitter));
+                session.endSession();
+                return SaleService.processSale(saleData, userId);
+            }
+
+            console.error(`Sale Processing Error: ${error.message}`);
             throw error;
         } finally {
             session.endSession();

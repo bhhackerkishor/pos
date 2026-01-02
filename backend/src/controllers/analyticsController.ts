@@ -57,12 +57,25 @@ export const getSalesChart = async (req: Request, res: Response) => {
 
 export const getDetailedAnalytics = async (req: Request, res: Response) => {
     try {
+        const { startDate, endDate } = req.query;
         const today = new Date();
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        let dateQuery: any = {};
+        if (startDate && endDate) {
+            dateQuery = {
+                $gte: new Date(startDate as string),
+                $lte: new Date(endDate as string)
+            };
+        } else {
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            dateQuery = { $gte: startOfMonth };
+        }
+
+        const startOfComparison = new Date(today.getFullYear(), today.getMonth(), 1); // Default for secondary logic
 
         // 1. Performance Overview
         const performance = await DailyReport.aggregate([
-            { $match: { date: { $gte: startOfMonth } } },
+            { $match: { date: dateQuery } },
             {
                 $group: {
                     _id: null,
@@ -118,11 +131,8 @@ export const getDetailedAnalytics = async (req: Request, res: Response) => {
             .limit(10)
             .select('name phone outstandingBalance');
 
-        // 6. Hourly Peaks (last 30 days)
-        const hourAgo = new Date();
-        hourAgo.setDate(hourAgo.getDate() - 30);
         const hourlyStats = await Sale.aggregate([
-            { $match: { createdAt: { $gte: hourAgo } } },
+            { $match: { createdAt: dateQuery } },
             {
                 $group: {
                     _id: { $hour: '$createdAt' },
@@ -189,6 +199,7 @@ export const getDetailedAnalytics = async (req: Request, res: Response) => {
 
         // 11. Category Performance (Profit focus)
         const categoryPerformance = await Sale.aggregate([
+            { $match: { createdAt: dateQuery } },
             { $unwind: '$items' },
             { $lookup: { from: 'products', localField: 'items.product', foreignField: '_id', as: 'pInfo' } },
             { $unwind: '$pInfo' },
@@ -219,6 +230,7 @@ export const getDetailedAnalytics = async (req: Request, res: Response) => {
 
         // 13. Staff Performance (Operational Efficiency)
         const staffStats = await Sale.aggregate([
+            { $match: { createdAt: dateQuery } },
             {
                 $group: {
                     _id: '$cashier',
