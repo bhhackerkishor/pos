@@ -233,65 +233,144 @@ export default function POSPage() {
     const balanceShortfall = total > Number(receivedAmount) ? (total - Number(receivedAmount)) : 0;
 
     const handleCheckout = async () => {
-        try {
-            setLoading(true);
-            const finalAmountPaid = paymentMethod === 'credit' ? 0 : (Number(receivedAmount) || total);
-            const invoiceNumber = await generateInvoiceNumber();
+  try {
+    setLoading(true);
 
-            const saleData = {
-                invoiceNumber,
-                items: items.map(item => {
-                    let price = item.price;
-                    if (item.wholesalePrice && item.wholesaleThreshold && item.quantity >= item.wholesaleThreshold) {
-                        price = item.wholesalePrice;
-                    }
-                    return { ...item, price, subTotal: price * item.quantity };
-                }),
-                customerDetails: {
-                    name: customerName || 'Walk-in Customer',
-                    phone: customerPhone
-                },
-                paymentMethod,
-                amountPaid: finalAmountPaid,
-                subTotal: calculateTotals().subtotal,
-                taxTotal: calculateTotals().taxTotal,
-                grandTotal: total,
-                changeAmount: changeAmount,
-                createdAt: new Date(),
-                offlineId: `SALE-${Date.now()}`,
-                synced: 0
-            };
+    if (items.length === 0) {
+      toast.error('Cart is empty');
+      return;
+    }
 
-            // Save to IndexedDB (Core requirement: Offline First)
-            await db.sales.add(saleData);
+    const invoiceNumber = await generateInvoiceNumber();
 
-            // Deduct stock locally
-            for (const item of saleData.items) {
-                const product = await db.products.get(item._id);
-                if (product) {
-                    await db.products.update(item._id, {
-                        stockQuantity: (product.stockQuantity || 0) - item.quantity
-                    });
-                }
-            }
+    const totals = calculateTotals();
 
-            toast.success('Sale Completed Offline');
-            if (autoPrint) handlePrint(saleData);
+    const totalQuantity = items.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
 
-            // Sync in background if online
-            if (isOnline) {
-                syncData();
-            }
+    // GST Split (India)
+    const cgst = totals.taxTotal / 2;
+    const sgst = totals.taxTotal / 2;
+    const igst = 0;
 
-            clearCart(); setCustomerName(''); setCustomerPhone(''); setSelectedCustomerId(null); setReceivedAmount(''); setShowCheckout(false);
-            fetchProducts();
-        } catch (error: any) {
-            console.error(error);
-            toast.error('Transaction failed');
-        } finally {
-            setLoading(false);
-        }
+    const amountPaid =
+      paymentMethod === 'credit'
+        ? 0
+        : Number(receivedAmount) || totals.total;
+
+    const saleData = {
+      invoiceNumber,
+
+      // REQUIRED (User performing sale)
+      cashier: useAuthStore.getState().user?._id,
+
+      // Optional customer reference
+      customer: selectedCustomerId || undefined,
+
+      customerDetails: {
+        name: customerName || 'Walk-in Customer',
+        phone: customerPhone || '',
+      },
+
+      items: items.map(item => {
+        const appliedPrice =
+          item.wholesalePrice &&
+          item.wholesaleThreshold &&
+          item.quantity >= item.wholesaleThreshold
+            ? item.wholesalePrice
+            : item.price;
+
+        const subTotal = appliedPrice * item.quantity;
+        const taxAmount = (subTotal * (item.taxRate || 0)) / 100;
+
+        return {
+          product: item._id,          // ObjectId
+          name: item.name,
+          quantity: item.quantity,
+          price: appliedPrice,
+          costPrice: item.costPrice || 0,
+          taxRate: item.taxRate || 0,
+          taxAmount,
+          discount: 0,
+          subTotal,
+        };
+      }),
+
+      totalQuantity,
+
+      subTotal: totals.subtotal,
+      taxTotal: totals.taxTotal,
+
+      cgst,
+      sgst,
+      igst,
+
+      discountTotal: 0,
+
+      grandTotal: totals.total,
+
+      paymentMethod, // cash | upi | card | credit | split
+
+      status: 'completed',
+
+      paymentStatus:
+        paymentMethod === 'credit' ? 'pending' : 'paid',
+
+      amountPaid,
+
+      changeAmount,
+
+      offlineId: `SALE-${Date.now()}`,
+
+      synced: false,
     };
+
+    // ===============================
+    // OFFLINE FIRST: Save locally
+    // ===============================
+    await db.sales.add(saleData);
+
+    // Deduct stock locally
+    for (const item of saleData.items) {
+      const product = await db.products.get(item.product);
+      if (product) {
+        await db.products.update(item.product, {
+          stockQuantity:
+            (product.stockQuantity || 0) - item.quantity,
+        });
+      }
+    }
+
+    toast.success('Sale completed');
+
+    // Auto print
+    if (autoPrint) {
+      handlePrint(saleData);
+    }
+
+    // Background sync if online
+    if (isOnline) {
+      syncData();
+    }
+
+    // Reset UI
+    clearCart();
+    setCustomerName('');
+    setCustomerPhone('');
+    setSelectedCustomerId(null);
+    setReceivedAmount('');
+    setShowCheckout(false);
+
+    fetchProducts();
+  } catch (error) {
+    console.error(error);
+    toast.error('Checkout failed');
+  } finally {
+    setLoading(false);
+  }
+};e
 
     const handlePrint = (sale: any) => {
         const printWindow = window.open('', '_blank')
