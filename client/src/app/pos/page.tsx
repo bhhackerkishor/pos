@@ -370,7 +370,7 @@ export default function POSPage() {
   } finally {
     setLoading(false);
   }
-};e
+};
 
     const handlePrint = (sale: any) => {
         const printWindow = window.open('', '_blank')
