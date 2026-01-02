@@ -32,9 +32,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
                 try {
                     await api.post('/sales', sale);
                     await db.sales.update(sale.id!, { synced: 1 });
-                } catch (err) {
+                } catch (err: any) {
+                    const errorMsg = err.response?.data?.message || err.message;
                     console.error('Failed to sync sale', sale.id, err);
+                    toast.error(`Sale ${sale.invoiceNumber} failed: ${errorMsg}`, { duration: 5000 });
                 }
+
             }
             toast.success('Sales synced successfully', { id: 'sync-sales' });
         }
