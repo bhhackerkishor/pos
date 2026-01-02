@@ -15,7 +15,7 @@ export async function generateInvoiceNumber(): Promise<string> {
         startYear = currentYear;
         endYear = currentYear + 1;
     } else { // Jan, Feb, Mar
-        startYear = currentYear - 1;
+        startYear = currentYear;
         endYear = currentYear;
     }
 
@@ -36,9 +36,9 @@ export async function generateInvoiceNumber(): Promise<string> {
     const paddedIncrement = nextIncrement.toString().padStart(4, '0');
 
     // Add a device ID for safety if available
-    const deviceId = await getDeviceId();
+    //const deviceId = await getDeviceId();
 
-    return `${yearPrefix}/${paddedIncrement}-${deviceId}`;
+    return `${yearPrefix}/${paddedIncrement}`;
 }
 
 async function getDeviceId(): Promise<string> {
